@@ -47,6 +47,7 @@ create table public.quotes (
   quote_number serial, -- Simple auto-increment for display
   status text default 'draft', -- draft, sent, accepted, rejected, paid, partial
   total_amount numeric default 0,
+  paid_amount numeric default 0,
   valid_until date,
   notes text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,

@@ -1,72 +1,116 @@
 import { Router } from 'express';
 import { supabase } from '../db/supabase';
+import { requireAuth } from '../middleware/auth';
 
 const router = Router();
 
-// Middleware to check auth (simplified)
-const requireAuth = async (req: any, res: any, next: any) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+// List all services for authenticated user
+router.get('/', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user?.id;
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) return res.status(401).json({ error: 'Unauthorized' });
+        const { data: services, error } = await supabase
+            .from('services')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
 
-    req.user = user;
-    next();
-};
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
 
-// List Services
-router.get('/', requireAuth, async (req: any, res) => {
-    const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .eq('user_id', req.user.id)
-        .order('created_at', { ascending: false });
-
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
+        res.json(services || []);
+    } catch (error: any) {
+        console.error('List services error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
-// Create Service
-router.post('/', requireAuth, async (req: any, res) => {
-    const { name, description, unit_cost, unit_type } = req.body;
-    const { data, error } = await supabase
-        .from('services')
-        .insert({ user_id: req.user.id, name, description, unit_cost, unit_type })
-        .select()
-        .single();
+// Create new service
+router.post('/', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const { name, description, unit_cost, unit_type } = req.body;
 
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
+        if (!name || unit_cost === undefined) {
+            return res.status(400).json({ error: 'Name and unit cost are required' });
+        }
+
+        const { data: service, error } = await supabase
+            .from('services')
+            .insert({
+                user_id: userId,
+                name,
+                description,
+                unit_cost,
+                unit_type: unit_type || 'hour'
+            })
+            .select()
+            .single();
+
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
+
+        res.status(201).json(service);
+    } catch (error: any) {
+        console.error('Create service error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
-// Update Service
-router.put('/:id', requireAuth, async (req: any, res) => {
-    const { id } = req.params;
-    const { name, description, unit_cost, unit_type } = req.body;
-    const { data, error } = await supabase
-        .from('services')
-        .update({ name, description, unit_cost, unit_type })
-        .eq('id', id)
-        .eq('user_id', req.user.id)
-        .select()
-        .single();
+// Update service
+router.put('/:id', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const { id } = req.params;
+        const { name, description, unit_cost, unit_type } = req.body;
 
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
+        const { data: service, error } = await supabase
+            .from('services')
+            .update({
+                name,
+                description,
+                unit_cost,
+                unit_type
+            })
+            .eq('id', id)
+            .eq('user_id', userId)
+            .select()
+            .single();
+
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
+
+        res.json(service);
+    } catch (error: any) {
+        console.error('Update service error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
-// Delete Service
-router.delete('/:id', requireAuth, async (req: any, res) => {
-    const { id } = req.params;
-    const { error } = await supabase
-        .from('services')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', req.user.id);
+// Delete service
+router.delete('/:id', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const { id } = req.params;
 
-    if (error) return res.status(400).json({ error: error.message });
-    res.json({ message: 'Service deleted' });
+        const { error } = await supabase
+            .from('services')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', userId);
+
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
+
+        res.json({ message: 'Service deleted successfully' });
+    } catch (error: any) {
+        console.error('Delete service error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 export default router;

@@ -1,77 +1,123 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn } from 'lucide-react';
+import { LogIn, AlertCircle } from 'lucide-react';
+
+const API_URL = 'http://localhost:3000';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement login logic
-    console.log('Login:', { email, password });
-    navigate('/dashboard');
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // Store session data in localStorage
+      localStorage.setItem('access_token', data.session.access_token);
+      localStorage.setItem('user', JSON.stringify(data.session.user));
+
+      // Navigate to dashboard
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during login');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 flex items-center justify-center px-6">
+    <div className="min-h-screen bg-[#0b1120] flex items-center justify-center px-6">
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link to="/" className="text-4xl font-bold text-white">QuoteDrop</Link>
-          <p className="text-purple-200 mt-2">Welcome back!</p>
+          <Link to="/" className="text-4xl font-bold text-white flex items-center justify-center gap-2">
+            <div className="w-10 h-10 bg-teal-400 rounded-full flex items-center justify-center text-[#0b1120] text-xl font-bold">Q</div>
+            <span>QuoteDrop</span>
+          </Link>
+          <p className="text-gray-400 mt-2">Welcome back!</p>
         </div>
 
         {/* Login Form */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl">
+        <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-8 shadow-2xl">
           <div className="flex items-center justify-center mb-6">
-            <LogIn className="w-12 h-12 text-pink-400" />
+            <div className="w-16 h-16 bg-teal-500/10 rounded-full flex items-center justify-center">
+              <LogIn className="w-8 h-8 text-teal-400" />
+            </div>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              <p className="text-red-200 text-sm">{error}</p>
+            </div>
+          )}
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-white font-semibold mb-2">Email</label>
+              <label className="block text-gray-300 font-semibold mb-2">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-purple-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full px-4 py-3 rounded-lg bg-white/5 text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                 placeholder="you@example.com"
                 required
+                disabled={loading}
               />
             </div>
 
             <div>
-              <label className="block text-white font-semibold mb-2">Password</label>
+              <label className="block text-gray-300 font-semibold mb-2">Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-purple-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full px-4 py-3 rounded-lg bg-white/5 text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                 placeholder="••••••••"
                 required
+                disabled={loading}
               />
             </div>
 
             <div className="text-right">
-              <Link to="/forgot-password" className="text-purple-200 hover:text-white text-sm">
+              <Link to="/forgot-password" className="text-teal-400 hover:text-teal-300 text-sm transition">
                 Forgot password?
               </Link>
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold rounded-lg hover:shadow-xl transform hover:scale-105 transition"
+              disabled={loading}
+              className="w-full py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-teal-500/20 transform hover:scale-[1.02] transition disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
-              Sign In
+              {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-purple-200">
+            <p className="text-gray-400">
               Don't have an account?{' '}
-              <Link to="/register" className="text-white font-semibold hover:text-pink-300">
+              <Link to="/register" className="text-teal-400 font-semibold hover:text-teal-300 transition">
                 Sign up
               </Link>
             </p>
@@ -81,3 +127,4 @@ export default function Login() {
     </div>
   );
 }
+

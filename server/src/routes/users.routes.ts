@@ -1,44 +1,91 @@
 import { Router } from 'express';
 import { supabase } from '../db/supabase';
+import { requireAuth } from '../middleware/auth';
 
 const router = Router();
 
-// Middleware to check auth (simplified)
-const requireAuth = async (req: any, res: any, next: any) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+// Get user profile
+router.get('/profile', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user?.id;
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) return res.status(401).json({ error: 'Unauthorized' });
+        const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
 
-    req.user = user;
-    next();
-};
+        if (error) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
 
-// Get Profile
-router.get('/profile', requireAuth, async (req: any, res) => {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', req.user.id)
-        .single();
-
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
+        res.json(profile);
+    } catch (error: any) {
+        console.error('Get profile error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
-// Update Profile
-router.put('/profile', requireAuth, async (req: any, res) => {
-    const { full_name, company_name, phone, logo_url } = req.body;
-    const { data, error } = await supabase
-        .from('profiles')
-        .update({ full_name, company_name, phone, logo_url, updated_at: new Date() })
-        .eq('id', req.user.id)
-        .select()
-        .single();
+// Update user profile
+router.put('/profile', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const { full_name, company_name, phone, logo_url } = req.body;
 
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
+        const { data: profile, error } = await supabase
+            .from('profiles')
+            .update({
+                full_name,
+                company_name,
+                phone,
+                logo_url,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
+
+        res.json(profile);
+    } catch (error: any) {
+        console.error('Update profile error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Update subscription tier
+router.put('/subscription', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const { subscription_tier, stripe_customer_id } = req.body;
+
+        if (!['free', 'premium'].includes(subscription_tier)) {
+            return res.status(400).json({ error: 'Invalid subscription tier' });
+        }
+
+        const { data: profile, error } = await supabase
+            .from('profiles')
+            .update({
+                subscription_tier,
+                stripe_customer_id,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
+
+        res.json(profile);
+    } catch (error: any) {
+        console.error('Update subscription error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 export default router;

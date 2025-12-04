@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, AlertCircle } from 'lucide-react';
+import { authService } from '../services/auth';
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -10,6 +11,8 @@ export default function Register() {
     password: '',
     confirmPassword: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -18,13 +21,57 @@ export default function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
+    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
+      setError('Passwords do not match!');
       return;
     }
-    // TODO: Implement registration logic
-    console.log('Register:', formData);
-    navigate('/dashboard');
+
+    // Validate password length
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Register user
+      const result = await authService.register(
+        formData.email,
+        formData.password,
+        formData.firstName,
+        formData.lastName
+      );
+
+      // Check if email confirmation is required
+      if (result.user && !result.user.email) {
+        // Email confirmation required
+        alert('Registration successful! Please check your email to confirm your account before logging in.');
+        navigate('/login');
+        return;
+      }
+
+      // Try to auto-login after registration
+      try {
+        await authService.login(formData.email, formData.password);
+        navigate('/dashboard');
+      } catch (loginErr: any) {
+        // If login fails due to unconfirmed email, show message
+        if (loginErr.message.includes('Email not confirmed') || loginErr.message.includes('Invalid')) {
+          alert('Registration successful! Please check your email to confirm your account, then login.');
+          navigate('/login');
+        } else {
+          throw loginErr;
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during registration');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleLogin = () => {
@@ -33,99 +80,119 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 flex items-center justify-center px-6 py-12">
+    <div className="min-h-screen bg-[#0b1120] flex items-center justify-center px-6 py-12">
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link to="/" className="text-4xl font-bold text-white">QuoteDrop</Link>
-          <p className="text-purple-200 mt-2">Create your account</p>
+          <Link to="/" className="text-4xl font-bold text-white flex items-center justify-center gap-2">
+            <div className="w-10 h-10 bg-teal-400 rounded-full flex items-center justify-center text-[#0b1120] text-xl font-bold">Q</div>
+            <span>QuoteDrop</span>
+          </Link>
+          <p className="text-gray-400 mt-2">Create your account</p>
         </div>
 
+
         {/* Register Form */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl">
+        <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-8 shadow-2xl">
           <div className="flex items-center justify-center mb-6">
-            <UserPlus className="w-12 h-12 text-pink-400" />
+            <div className="w-16 h-16 bg-teal-500/10 rounded-full flex items-center justify-center">
+              <UserPlus className="w-8 h-8 text-teal-400" />
+            </div>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              <p className="text-red-200 text-sm">{error}</p>
+            </div>
+          )}
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-white font-semibold mb-2">First Name</label>
+                <label className="block text-gray-300 font-semibold mb-2">First Name</label>
                 <input
                   type="text"
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-purple-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full px-4 py-3 rounded-lg bg-white/5 text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                   placeholder="John"
                   required
+                  disabled={loading}
                 />
               </div>
               <div>
-                <label className="block text-white font-semibold mb-2">Last Name</label>
+                <label className="block text-gray-300 font-semibold mb-2">Last Name</label>
                 <input
                   type="text"
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-purple-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full px-4 py-3 rounded-lg bg-white/5 text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                   placeholder="Doe"
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-white font-semibold mb-2">Email</label>
+              <label className="block text-gray-300 font-semibold mb-2">Email</label>
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-purple-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full px-4 py-3 rounded-lg bg-white/5 text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                 placeholder="you@example.com"
                 required
+                disabled={loading}
               />
             </div>
 
             <div>
-              <label className="block text-white font-semibold mb-2">Password</label>
+              <label className="block text-gray-300 font-semibold mb-2">Password</label>
               <input
                 type="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-purple-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full px-4 py-3 rounded-lg bg-white/5 text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                 placeholder="••••••••"
                 required
+                disabled={loading}
               />
             </div>
 
             <div>
-              <label className="block text-white font-semibold mb-2">Confirm Password</label>
+              <label className="block text-gray-300 font-semibold mb-2">Confirm Password</label>
               <input
                 type="password"
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg bg-white/20 text-white placeholder-purple-300 border border-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full px-4 py-3 rounded-lg bg-white/5 text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
                 placeholder="••••••••"
                 required
+                disabled={loading}
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold rounded-lg hover:shadow-xl transform hover:scale-105 transition"
+              disabled={loading}
+              className="w-full py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-teal-500/20 transform hover:scale-[1.02] transition disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
-              Create Account
+              {loading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
 
           <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-white/30"></div>
-            <span className="px-4 text-purple-200 text-sm">OR</span>
-            <div className="flex-1 border-t border-white/30"></div>
+            <div className="flex-1 border-t border-white/10"></div>
+            <span className="px-4 text-gray-400 text-sm">OR</span>
+            <div className="flex-1 border-t border-white/10"></div>
           </div>
 
           <button
@@ -142,9 +209,9 @@ export default function Register() {
           </button>
 
           <div className="mt-6 text-center">
-            <p className="text-purple-200">
+            <p className="text-gray-400">
               Already have an account?{' '}
-              <Link to="/login" className="text-white font-semibold hover:text-pink-300">
+              <Link to="/login" className="text-teal-400 font-semibold hover:text-teal-300 transition">
                 Sign in
               </Link>
             </p>

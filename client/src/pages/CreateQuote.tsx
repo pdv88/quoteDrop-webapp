@@ -1,24 +1,44 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, Settings, LogOut, Search, Plus, Trash2, Eye } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Eye, Plus, Trash2 } from 'lucide-react';
 
-const mockClients = [
-  { id: '1', name: 'Acme Corp' },
-  { id: '2', name: 'Tech Solutions' },
-];
+import { clientsApi, servicesApi, quotesApi } from '../services/api';
 
-const mockServices = [
-  { id: '1', name: 'Web Design', cost: 100, unit: 'hour' },
-  { id: '2', name: 'Development', cost: 150, unit: 'hour' },
-];
+import type { Client, Service } from '../types';
+
 
 export default function CreateQuote() {
+  const navigate = useNavigate();
+  
+  const [clients, setClients] = useState<Client[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState('');
   const [items, setItems] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [clientsData, servicesData] = await Promise.all([
+        clientsApi.list(),
+        servicesApi.list()
+      ]);
+      setClients(clientsData);
+      setServices(servicesData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const addItem = () => {
-    setItems([...items, { service: '', description: '', quantity: 1, unitCost: 0 }]);
+    setItems([...items, { service_id: '', description: '', quantity: 1, unitCost: 0 }]);
   };
 
   const updateItem = (index: number, field: string, value: any) => {
@@ -35,25 +55,52 @@ export default function CreateQuote() {
     return items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-indigo-900 to-purple-900 text-white p-6">
-        <div className="text-2xl font-bold mb-10">QuoteDrop</div>
-        <nav className="space-y-2">
-          <NavLink to="/dashboard" icon={<LayoutDashboard />} label="Dashboard" />
-          <NavLink to="/clients" icon={<Users />} label="Clients" />
-          <NavLink to="/quotes/new" icon={<FileText />} label="New Quote" active />
-          <NavLink to="/settings" icon={<Settings />} label="Settings" />
-        </nav>
-        <button className="absolute bottom-6 left-6 flex items-center space-x-2 text-purple-200 hover:text-white transition">
-          <LogOut className="w-5 h-5" />
-          <span>Logout</span>
-        </button>
-      </aside>
+  const handleSubmit = async () => {
+    if (!selectedClient) {
+      alert('Please select a client');
+      return;
+    }
+    if (items.length === 0) {
+      alert('Please add at least one item');
+      return;
+    }
 
-      {/* Main Content */}
-      <main className="ml-64 p-8">
+    setSubmitting(true);
+    try {
+      const quoteData = {
+        client_id: selectedClient,
+        items: items.map(item => ({
+          service_id: item.service_id || undefined,
+          description: item.description,
+          quantity: item.quantity,
+          unit_cost: item.unitCost
+        })),
+        valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days validity
+      };
+
+      await quotesApi.create(quoteData);
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error creating quote:', error);
+      alert('Failed to create quote');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-xl text-gray-600">Loading data...</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+    <main className="p-4 sm:p-6 md:p-8 max-w-full overflow-x-hidden">
         <h1 className="text-3xl font-bold text-gray-800 mb-8">Create Quote</h1>
 
         <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -63,10 +110,10 @@ export default function CreateQuote() {
             <select
               value={selectedClient}
               onChange={(e) => setSelectedClient(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
             >
               <option value="">Choose a client...</option>
-              {mockClients.map((client) => (
+              {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.name}
                 </option>
@@ -80,7 +127,7 @@ export default function CreateQuote() {
               <h2 className="text-xl font-bold text-gray-800">Services</h2>
               <button
                 onClick={addItem}
-                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Item</span>
@@ -93,19 +140,19 @@ export default function CreateQuote() {
                   <div className="col-span-4">
                     <label className="block text-gray-700 font-semibold mb-2">Service</label>
                     <select
-                      value={item.service}
+                      value={item.service_id}
                       onChange={(e) => {
-                        const service = mockServices.find((s) => s.id === e.target.value);
-                        updateItem(index, 'service', e.target.value);
+                        const service = services.find((s) => s.id === e.target.value);
+                        updateItem(index, 'service_id', e.target.value);
                         if (service) {
                           updateItem(index, 'description', service.name);
-                          updateItem(index, 'unitCost', service.cost);
+                          updateItem(index, 'unitCost', service.unit_cost);
                         }
                       }}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     >
                       <option value="">Select...</option>
-                      {mockServices.map((service) => (
+                      {services.map((service) => (
                         <option key={service.id} value={service.id}>
                           {service.name}
                         </option>
@@ -118,7 +165,7 @@ export default function CreateQuote() {
                       type="number"
                       value={item.quantity}
                       onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       min="0"
                     />
                   </div>
@@ -128,7 +175,7 @@ export default function CreateQuote() {
                       type="number"
                       value={item.unitCost}
                       onChange={(e) => updateItem(index, 'unitCost', parseFloat(e.target.value))}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       min="0"
                     />
                   </div>
@@ -157,13 +204,17 @@ export default function CreateQuote() {
           <div className="flex space-x-4">
             <button
               onClick={() => setShowPreview(true)}
-              className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 border border-purple-600 text-purple-600 font-semibold rounded-lg hover:bg-purple-50 transition"
+              className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 border border-teal-600 text-teal-600 font-semibold rounded-lg hover:bg-teal-50 transition"
             >
               <Eye className="w-5 h-5" />
               <span>Preview PDF</span>
             </button>
-            <button className="flex-1 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-lg hover:shadow-xl transform hover:scale-105 transition">
-              Send Quote
+            <button 
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-teal-500/20 transform hover:scale-105 transition disabled:opacity-50 disabled:transform-none"
+            >
+              {submitting ? 'Creating...' : 'Create Quote'}
             </button>
           </div>
         </div>
@@ -176,11 +227,11 @@ export default function CreateQuote() {
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Quote Preview</h2>
             <div className="border rounded-lg p-6 mb-6">
               <div className="text-center mb-6">
-                <h3 className="text-3xl font-bold text-purple-900">QuoteDrop</h3>
+                <h3 className="text-3xl font-bold text-[#0b1120]">QuoteDrop</h3>
                 <p className="text-gray-600">Professional Quote</p>
               </div>
               <div className="mb-6">
-                <p className="text-gray-600">Client: <span className="font-semibold">{mockClients.find((c) => c.id === selectedClient)?.name}</span></p>
+                <p className="text-gray-600">Client: <span className="font-semibold">{clients.find((c) => c.id === selectedClient)?.name}</span></p>
               </div>
               <table className="w-full mb-6">
                 <thead>
@@ -215,20 +266,8 @@ export default function CreateQuote() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-function NavLink({ to, icon, label, active }: { to: string; icon: React.ReactNode; label: string; active?: boolean }) {
-  return (
-    <Link
-      to={to}
-      className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
-        active ? 'bg-white/20 text-white' : 'text-purple-200 hover:bg-white/10 hover:text-white'
-      }`}
-    >
-      <span className="w-5 h-5">{icon}</span>
-      <span>{label}</span>
-    </Link>
-  );
-}
+
