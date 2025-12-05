@@ -1,9 +1,17 @@
-import { memo } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { useEffect, memo } from 'react';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, FileText, UserCircle } from 'lucide-react';
+import { authService } from '../services/auth';
 
 export default function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!authService.isAuthenticated()) {
+      navigate('/login');
+    }
+  }, [navigate]);
 
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
@@ -13,7 +21,7 @@ export default function Layout() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/50">
-        <div className="max-w-screen-xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-[1800px] mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
               Q
@@ -37,7 +45,7 @@ export default function Layout() {
       </header>
 
       {/* Main Content with top padding for header and bottom padding for nav */}
-      <main className="w-full pt-16 pb-24">
+      <main className="w-full max-w-[1800px] mx-auto pt-16 pb-24">
         <Outlet />
       </main>
 

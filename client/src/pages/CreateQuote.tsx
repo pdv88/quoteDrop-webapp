@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Plus, Trash2 } from 'lucide-react';
 
-import { clientsApi, servicesApi, quotesApi } from '../services/api';
+import { clientsApi, servicesApi, quotesApi, userApi } from '../services/api';
+import { generateQuotePDF } from '../utils/pdfGenerator';
 
 import type { Client, Service } from '../types';
 
@@ -13,8 +14,12 @@ export default function CreateQuote() {
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [selectedClient, setSelectedClient] = useState('');
   const [items, setItems] = useState<any[]>([]);
+  const [taxRate, setTaxRate] = useState(0);
+  const [termsConditions, setTermsConditions] = useState('');
+  const [expirationDate, setExpirationDate] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -24,12 +29,23 @@ export default function CreateQuote() {
 
   const loadData = async () => {
     try {
-      const [clientsData, servicesData] = await Promise.all([
+      const [clientsData, servicesData, userProfile] = await Promise.all([
         clientsApi.list(),
-        servicesApi.list()
+        servicesApi.list(),
+        userApi.getProfile()
       ]);
       setClients(clientsData);
       setServices(servicesData);
+      setUserProfile(userProfile);
+      
+      // Set default tax rate and terms from user profile
+      setTaxRate(userProfile.tax_rate || 0);
+      setTermsConditions(userProfile.terms_conditions || '');
+      
+      // Set default expiration date to 30 days from now
+      const defaultExpiration = new Date();
+      defaultExpiration.setDate(defaultExpiration.getDate() + 30);
+      setExpirationDate(defaultExpiration.toISOString().split('T')[0]);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -51,8 +67,16 @@ export default function CreateQuote() {
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const calculateTotal = () => {
+  const calculateSubtotal = () => {
     return items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
+  };
+
+  const calculateTax = () => {
+    return calculateSubtotal() * (taxRate / 100);
+  };
+
+  const calculateTotal = () => {
+    return calculateSubtotal() + calculateTax();
   };
 
   const handleSubmit = async () => {
@@ -75,7 +99,10 @@ export default function CreateQuote() {
           quantity: item.quantity,
           unit_cost: item.unitCost
         })),
-        valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days validity
+        tax_rate: taxRate,
+        terms_conditions: termsConditions,
+        expiration_date: expirationDate,
+        valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       };
 
       await quotesApi.create(quoteData);
@@ -192,11 +219,64 @@ export default function CreateQuote() {
             </div>
           </div>
 
+          {/* Quote Settings */}
+          <div className="border-t pt-6 mb-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Quote Settings</h3>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Expiration Date</label>
+                <input
+                  type="date"
+                  value={expirationDate}
+                  onChange={(e) => setExpirationDate(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Tax Rate (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={taxRate}
+                  onChange={(e) => setTaxRate(parseFloat(e.target.value) || 0)}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+            </div>
+            
+            <div className="mt-6">
+              <label className="block text-gray-700 font-semibold mb-2">Terms & Conditions</label>
+              <textarea
+                value={termsConditions}
+                onChange={(e) => setTermsConditions(e.target.value)}
+                placeholder="Enter terms and conditions for this quote..."
+                rows={4}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+              />
+            </div>
+          </div>
+
           {/* Total */}
           <div className="border-t pt-6 mb-6">
-            <div className="flex justify-between items-center text-2xl font-bold text-gray-800">
-              <span>Total:</span>
-              <span>${calculateTotal().toLocaleString()}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-lg text-gray-700">
+                <span>Subtotal:</span>
+                <span>${calculateSubtotal().toFixed(2)}</span>
+              </div>
+              {taxRate > 0 && (
+                <div className="flex justify-between items-center text-lg text-gray-700">
+                  <span>Tax ({taxRate}%):</span>
+                  <span>${calculateTax().toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-2xl font-bold text-gray-800 pt-2 border-t">
+                <span>Total:</span>
+                <span>${calculateTotal().toFixed(2)}</span>
+              </div>
             </div>
           </div>
 
@@ -254,15 +334,57 @@ export default function CreateQuote() {
                 </tbody>
               </table>
               <div className="text-right text-2xl font-bold">
-                Total: ${calculateTotal().toLocaleString()}
+                <div className="text-lg font-normal text-gray-600">Subtotal: ${calculateSubtotal().toLocaleString()}</div>
+                {taxRate > 0 && <div className="text-lg font-normal text-gray-600">Tax ({taxRate}%): ${calculateTax().toLocaleString()}</div>}
+                <div className="mt-2 pt-2 border-t">Total: ${calculateTotal().toLocaleString()}</div>
               </div>
+              
+              {(termsConditions || expirationDate) && (
+                <div className="mt-6 pt-6 border-t text-sm text-gray-600">
+                  {expirationDate && <p className="mb-2"><strong>Expires:</strong> {expirationDate}</p>}
+                  {termsConditions && (
+                    <div>
+                      <strong>Terms & Conditions:</strong>
+                      <p className="whitespace-pre-wrap mt-1">{termsConditions}</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <button
-              onClick={() => setShowPreview(false)}
-              className="w-full py-3 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition"
-            >
-              Close
-            </button>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setShowPreview(false)}
+                className="flex-1 py-3 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  if (userProfile && selectedClient) {
+                    const client = clients.find(c => c.id === selectedClient);
+                    generateQuotePDF({
+                      quote: {
+                        quote_number: 'DRAFT',
+                        created_at: new Date().toISOString(),
+                        expiration_date: expirationDate,
+                        tax_rate: taxRate,
+                        terms_conditions: termsConditions,
+                        clients: client
+                      } as any,
+                      user: userProfile,
+                      items: items.map(item => ({
+                        ...item,
+                        unit_cost: item.unitCost
+                      }))
+                    });
+                  }
+                }}
+                className="flex-1 py-3 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition flex items-center justify-center space-x-2"
+              >
+                <Eye className="w-4 h-4" />
+                <span>Download PDF</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -4,13 +4,13 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
 
 let supabaseClient: SupabaseClient | null = null;
 
-if (supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('http')) {
+if (supabaseUrl && supabaseServiceKey && supabaseUrl.startsWith('http')) {
     try {
-        supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+        supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
         console.log('✅ Supabase client initialized successfully');
     } catch (error) {
         console.error('❌ Failed to initialize Supabase client:', error);
@@ -38,7 +38,7 @@ export const supabase = new Proxy({} as SupabaseClient, {
     get(target, prop) {
         if (!supabaseClient) {
             throw new Error(
-                'Supabase is not configured. Please add SUPABASE_URL and SUPABASE_ANON_KEY to your .env file.'
+                'Supabase is not configured. Please add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to your .env file.'
             );
         }
         return (supabaseClient as any)[prop];

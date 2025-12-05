@@ -16,6 +16,7 @@ router.get('/profile', requireAuth, async (req, res) => {
             .single();
 
         if (error) {
+            console.error('Get profile error:', error);
             return res.status(404).json({ error: 'Profile not found' });
         }
 
@@ -30,7 +31,7 @@ router.get('/profile', requireAuth, async (req, res) => {
 router.put('/profile', requireAuth, async (req, res) => {
     try {
         const userId = req.user?.id;
-        const { full_name, company_name, phone, logo_url } = req.body;
+        const { full_name, company_name, phone, logo_url, tax_rate, terms_conditions } = req.body;
 
         const { data: profile, error } = await supabase
             .from('profiles')
@@ -39,6 +40,8 @@ router.put('/profile', requireAuth, async (req, res) => {
                 company_name,
                 phone,
                 logo_url,
+                tax_rate,
+                terms_conditions,
                 updated_at: new Date().toISOString()
             })
             .eq('id', userId)
@@ -46,12 +49,13 @@ router.put('/profile', requireAuth, async (req, res) => {
             .single();
 
         if (error) {
+            console.error('Supabase update error:', error);
             return res.status(400).json({ error: error.message });
         }
 
         res.json(profile);
     } catch (error: any) {
-        console.error('Update profile error:', error);
+        console.error('❌ Update profile error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

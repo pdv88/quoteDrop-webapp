@@ -99,7 +99,9 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
         Object.assign(headers, options.headers);
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const url = `${API_URL}${endpoint}`;
+
+    const response = await fetch(url, {
         ...options,
         headers,
     });
@@ -107,6 +109,12 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     const data = await response.json();
 
     if (!response.ok) {
+        if (response.status === 401) {
+            // Token expired or invalid
+            authService.logout();
+            window.location.href = '/login';
+            throw new Error('Session expired');
+        }
         throw new Error(data.error || 'Request failed');
     }
 

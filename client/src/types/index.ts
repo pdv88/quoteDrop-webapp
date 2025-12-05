@@ -9,6 +9,8 @@ export interface User {
     logo_url?: string;
     subscription_tier: 'free' | 'premium';
     stripe_customer_id?: string;
+    tax_rate?: number;
+    terms_conditions?: string;
     created_at: string;
     updated_at: string;
 }
@@ -62,6 +64,9 @@ export interface Quote {
     status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'paid' | 'partial';
     total_amount: number;
     paid_amount?: number;
+    tax_rate?: number;
+    terms_conditions?: string;
+    expiration_date?: string;
     valid_until?: string;
     notes?: string;
     created_at: string;
@@ -98,6 +103,9 @@ export interface CreateQuoteData {
         quantity: number;
         unit_cost: number;
     }[];
+    tax_rate?: number;
+    terms_conditions?: string;
+    expiration_date?: string;
     notes?: string;
     valid_until?: string;
 }
@@ -107,4 +115,6 @@ export interface UpdateProfileData {
     company_name?: string;
     phone?: string;
     logo_url?: string;
+    tax_rate?: number;
+    terms_conditions?: string;
 }

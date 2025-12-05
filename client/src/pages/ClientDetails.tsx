@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Mail, Send, Edit, Trash2, Phone, MapPin, ArrowLeft } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 import { clientsApi, quotesApi } from '../services/api';
 import { formatCurrency, formatDate, formatQuoteNumber } from '../utils/formatters';
+import { processChartData, type TimeRange } from '../utils/chartUtils';
 import type { ClientWithStats, Quote } from '../types';
 
 export default function ClientDetails() {
@@ -14,6 +15,7 @@ export default function ClientDetails() {
   const [client, setClient] = useState<ClientWithStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRange>('30d');
 
   useEffect(() => {
     if (id) {
@@ -61,9 +63,23 @@ export default function ClientDetails() {
     }
   };
 
-  const handleUpdateStatus = async (quoteId: string, newStatus: Quote['status']) => {
+  const handleUpdateStatus = async (quoteId: string, newStatus: string) => {
+    let paidAmount: number | undefined;
+
+    if (newStatus === 'partial') {
+      const amountStr = prompt('Enter the amount paid so far:');
+      if (amountStr === null) return;
+      
+      const amount = parseFloat(amountStr);
+      if (isNaN(amount) || amount < 0) {
+        alert('Please enter a valid amount');
+        return;
+      }
+      paidAmount = amount;
+    }
+
     try {
-      const updatedQuote = await quotesApi.updateStatus(quoteId, newStatus);
+      const updatedQuote = await quotesApi.updateStatus(quoteId, newStatus as any, paidAmount);
       setQuotes(quotes.map(q => q.id === quoteId ? updatedQuote : q));
       // Reload client stats
       if (id) {
@@ -73,6 +89,38 @@ export default function ClientDetails() {
     } catch (error) {
       console.error('Error updating status:', error);
       alert('Failed to update status');
+    }
+  };
+
+  const handleSendEmail = async (quoteId: string) => {
+    if (!confirm('Send this quote via email?')) return;
+
+    try {
+      const response = await quotesApi.sendQuote(quoteId);
+      alert('Email sent successfully!');
+      
+      if (response.previewUrl) {
+        window.open(response.previewUrl, '_blank');
+      }
+
+      // Reload client data to update status
+      if (id) {
+        const updatedClient = await clientsApi.get(id);
+        setClient(updatedClient);
+        
+        // Update local quotes state if needed
+        if (updatedClient.quotes) {
+          setQuotes(updatedClient.quotes);
+        } else {
+           // If quotes aren't in client response, we might need to fetch them or just update the single quote in the list
+           // But for simplicity, let's just re-fetch all quotes for this client if needed
+           // Or simpler: just update the local state for this quote to 'sent'
+           setQuotes(prevQuotes => prevQuotes.map(q => q.id === quoteId ? { ...q, status: 'sent' } : q));
+        }
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Failed to send email');
     }
   };
 
@@ -86,26 +134,7 @@ export default function ClientDetails() {
 
   if (!client) return null;
 
-  // Prepare chart data from quotes
-  // Group by month
-  const chartDataMap = new Map<string, { month: string; quoted: number; paid: number }>();
-  
-  quotes.forEach(quote => {
-    const date = new Date(quote.created_at);
-    const monthKey = date.toLocaleString('default', { month: 'short' });
-    
-    if (!chartDataMap.has(monthKey)) {
-      chartDataMap.set(monthKey, { month: monthKey, quoted: 0, paid: 0 });
-    }
-    
-    const data = chartDataMap.get(monthKey)!;
-    data.quoted += quote.total_amount;
-    if (quote.status === 'paid') {
-      data.paid += quote.total_amount;
-    }
-  });
-
-  const chartData = Array.from(chartDataMap.values());
+  const chartData = processChartData(quotes, timeRange);
 
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-full overflow-x-hidden">
@@ -162,18 +191,75 @@ export default function ClientDetails() {
         {/* Chart */}
         {chartData.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Revenue Overview</h2>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
+              <h2 className="text-xl font-bold text-gray-800">Revenue Overview</h2>
+              <div className="flex bg-gray-100 rounded-lg p-1 overflow-x-auto">
+                {(['7d', '30d', '3m', '1y', 'all'] as TimeRange[]).map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setTimeRange(range)}
+                    className={`px-3 py-1 text-xs font-semibold rounded-md transition whitespace-nowrap ${
+                      timeRange === range
+                        ? 'bg-white text-teal-600 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {range === 'all' ? 'All' : range.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="w-full overflow-x-auto">
               <div className="min-w-[300px]">
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                    <Bar dataKey="quoted" fill="#8b5cf6" name="Quoted" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="paid" fill="#10b981" name="Paid" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorQuoted" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorPaid" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#6b7280', fontSize: 12 }}
+                      dy={10}
+                    />
+                    <YAxis 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#6b7280', fontSize: 12 }}
+                      tickFormatter={(value) => `$${value}`}
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value: number) => [formatCurrency(value), undefined]}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="quoted" 
+                      stroke="#8b5cf6" 
+                      strokeWidth={3}
+                      fillOpacity={1} 
+                      fill="url(#colorQuoted)" 
+                      name="Quoted" 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="paid" 
+                      stroke="#10b981" 
+                      strokeWidth={3}
+                      fillOpacity={1} 
+                      fill="url(#colorPaid)" 
+                      name="Paid" 
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -217,15 +303,26 @@ export default function ClientDetails() {
                     <span className="font-bold text-gray-800 hidden sm:block">{formatCurrency(quote.total_amount)}</span>
                     
                     <div className="flex items-center gap-2">
-                      {quote.status === 'draft' && (
-                        <button 
-                          onClick={() => handleUpdateStatus(quote.id, 'sent')}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                          title="Mark as Sent"
-                        >
-                          <Send className="w-4 h-4" />
-                        </button>
-                      )}
+                      <select
+                        value={quote.status}
+                        onChange={(e) => handleUpdateStatus(quote.id, e.target.value)}
+                        className="px-2 py-1 rounded-lg text-xs font-semibold border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent cursor-pointer bg-white"
+                      >
+                        <option value="draft">Draft</option>
+                        <option value="sent">Sent</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="partial">Partial</option>
+                        <option value="paid">Paid</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+
+                      <button 
+                        onClick={() => handleSendEmail(quote.id)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                        title="Send Email"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
                       
                       <Link 
                         to={`/quotes/${quote.id}/edit`}

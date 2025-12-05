@@ -105,6 +105,11 @@ export const quotesApi = {
     delete: (id: string): Promise<{ message: string }> =>
         apiRequest(`/api/quotes/${id}`, {
             method: 'DELETE'
+        }),
+
+    sendQuote: (id: string): Promise<{ message: string; previewUrl?: string }> =>
+        apiRequest(`/api/quotes/${id}/send`, {
+            method: 'POST'
         })
 };
 

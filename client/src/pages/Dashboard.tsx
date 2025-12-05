@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Send, Edit, Trash2 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { dashboardApi, quotesApi } from '../services/api';
 import { processChartData, type TimeRange } from '../utils/chartUtils';
 import { formatQuoteNumber } from '../utils/formatters';
@@ -129,7 +129,17 @@ export default function Dashboard() {
             {chartData.length > 0 ? (
               <div className="w-full -mx-2 sm:mx-0">
                 <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={chartData} margin={{ left: -20, right: 10 }}>
+                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorQuoted" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#14b8a6" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorPaid" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                     <XAxis 
                       dataKey="date" 
@@ -149,25 +159,25 @@ export default function Dashboard() {
                       formatter={(value: number) => [`$${value.toLocaleString()}`, undefined]}
                     />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    <Line 
+                    <Area 
                       type="monotone" 
                       dataKey="quoted" 
                       name="Quoted"
                       stroke="#14b8a6" 
-                      strokeWidth={2}
-                      dot={{ fill: '#14b8a6', strokeWidth: 2, r: 3 }}
-                      activeDot={{ r: 5 }}
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#colorQuoted)"
                     />
-                    <Line 
+                    <Area 
                       type="monotone" 
                       dataKey="paid" 
                       name="Paid"
                       stroke="#10b981" 
-                      strokeWidth={2}
-                      dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
-                      activeDot={{ r: 5 }}
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#colorPaid)"
                     />
-                  </LineChart>
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             ) : (

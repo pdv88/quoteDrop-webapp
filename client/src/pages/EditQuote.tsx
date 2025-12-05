@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 
-import { quotesApi, servicesApi } from '../services/api';
+import { quotesApi, servicesApi, userApi } from '../services/api';
+import { generateQuotePDF } from '../utils/pdfGenerator';
 
 import type { Quote, Service } from '../types';
 
 import { formatQuoteNumber } from '../utils/formatters';
-import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Trash2, FileText } from 'lucide-react';
 
 export default function EditQuote() {
   const { id } = useParams<{ id: string }>();
@@ -15,8 +16,12 @@ export default function EditQuote() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [items, setItems] = useState<any[]>([]);
+  const [taxRate, setTaxRate] = useState(0);
+  const [termsConditions, setTermsConditions] = useState('');
+  const [expirationDate, setExpirationDate] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -27,13 +32,21 @@ export default function EditQuote() {
   const loadData = async () => {
     try {
       if (!id) return;
-      const [quoteData, servicesData] = await Promise.all([
+      if (!id) return;
+      const [quoteData, servicesData, userData] = await Promise.all([
         quotesApi.get(id),
-        servicesApi.list()
+        servicesApi.list(),
+        userApi.getProfile()
       ]);
       setQuote(quoteData);
       setServices(servicesData);
+      setUserProfile(userData);
       setItems(quoteData.items || []);
+      
+      // Load quote tax, terms, and expiration
+      setTaxRate(quoteData.tax_rate || 0);
+      setTermsConditions(quoteData.terms_conditions || '');
+      setExpirationDate(quoteData.expiration_date || '');
     } catch (error) {
       console.error('Error loading data:', error);
       alert('Failed to load quote data');
@@ -66,8 +79,16 @@ export default function EditQuote() {
     setItems(newItems);
   };
 
-  const calculateTotal = () => {
+  const calculateSubtotal = () => {
     return items.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0);
+  };
+
+  const calculateTax = () => {
+    return calculateSubtotal() * (taxRate / 100);
+  };
+
+  const calculateTotal = () => {
+    return calculateSubtotal() + calculateTax();
   };
 
   const handleSave = async () => {
@@ -90,6 +111,7 @@ export default function EditQuote() {
       }
     }
 
+
     setSaving(true);
     try {
       await quotesApi.update(id, {
@@ -99,7 +121,11 @@ export default function EditQuote() {
           description: item.description || '',
           quantity: Number(item.quantity),
           unit_cost: Number(item.unit_cost)
-        }))
+        })),
+        tax_rate: taxRate,
+        terms_conditions: termsConditions,
+        expiration_date: expirationDate || undefined,
+        valid_until: quote.valid_until
       });
       navigate(`/clients/${quote.client_id}`);
     } catch (error) {
@@ -137,6 +163,21 @@ export default function EditQuote() {
               <h1 className="text-3xl font-bold text-gray-800">Edit Quote {formatQuoteNumber(quote.quote_number)}</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => {
+                  if (quote && userProfile) {
+                    generateQuotePDF({
+                      quote: { ...quote, items },
+                      user: userProfile,
+                      items: items
+                    });
+                  }
+                }}
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-gray-700"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Download PDF</span>
+              </button>
               <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
                 quote.status === 'paid' ? 'bg-green-100 text-green-800' :
                 quote.status === 'sent' ? 'bg-yellow-100 text-yellow-800' :
@@ -196,10 +237,14 @@ export default function EditQuote() {
                     />
                   </div>
                   <div className="w-32">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
-                    <div className="px-4 py-3 bg-gray-100 rounded-lg text-gray-700 font-medium">
-                      ${(item.unit_cost * item.quantity).toLocaleString()}
-                    </div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit Cost</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={item.unit_cost}
+                      onChange={(e) => handleItemChange(index, 'unit_cost', Number(e.target.value))}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
                   </div>
                   <button
                     onClick={() => handleRemoveItem(index)}
@@ -211,11 +256,64 @@ export default function EditQuote() {
               ))}
             </div>
 
+            {/* Quote Settings */}
+            <div className="border-t pt-6 mb-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">Quote Settings</h3>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">Expiration Date</label>
+                  <input
+                    type="date"
+                    value={expirationDate}
+                    onChange={(e) => setExpirationDate(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">Tax Rate (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={taxRate}
+                    onChange={(e) => setTaxRate(parseFloat(e.target.value) || 0)}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+              
+              <div className="mt-6">
+                <label className="block text-gray-700 font-semibold mb-2">Terms & Conditions</label>
+                <textarea
+                  value={termsConditions}
+                  onChange={(e) => setTermsConditions(e.target.value)}
+                  placeholder="Enter terms and conditions for this quote..."
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                />
+              </div>
+            </div>
+
             {/* Total */}
-            <div className="flex justify-end pt-6 border-t border-gray-100">
-              <div className="text-right">
-                <div className="text-gray-600 mb-1">Total Amount</div>
-                <div className="text-3xl font-bold text-gray-800">${calculateTotal().toLocaleString()}</div>
+            <div className="border-t pt-6 mb-6">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-lg text-gray-700">
+                  <span>Subtotal:</span>
+                  <span>${calculateSubtotal().toLocaleString()}</span>
+                </div>
+                {taxRate > 0 && (
+                  <div className="flex justify-between items-center text-lg text-gray-700">
+                    <span>Tax ({taxRate}%):</span>
+                    <span>${calculateTax().toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-2xl font-bold text-gray-800 pt-2 border-t">
+                  <span>Total:</span>
+                  <span>${calculateTotal().toLocaleString()}</span>
+                </div>
               </div>
             </div>
 

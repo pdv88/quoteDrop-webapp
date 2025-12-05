@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { supabase } from '../db/supabase';
 import { requireAuth } from '../middleware/auth';
+import { generateQuotePDF } from '../services/pdf.service';
+import { sendQuoteEmail } from '../services/email.service';
 
 const router = Router();
 
@@ -37,7 +39,7 @@ router.get('/', requireAuth, async (req, res) => {
 router.post('/', requireAuth, async (req, res) => {
     try {
         const userId = req.user?.id;
-        const { client_id, items, notes, valid_until } = req.body;
+        const { client_id, items, notes, valid_until, tax_rate, terms_conditions, expiration_date } = req.body;
 
         if (!client_id || !items || items.length === 0) {
             return res.status(400).json({ error: 'Client and items are required' });
@@ -57,6 +59,9 @@ router.post('/', requireAuth, async (req, res) => {
                 total_amount,
                 notes,
                 valid_until,
+                tax_rate,
+                terms_conditions,
+                expiration_date,
                 status: 'draft'
             })
             .select()
@@ -148,7 +153,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     try {
         const userId = req.user?.id;
         const { id } = req.params;
-        const { client_id, items, notes, valid_until } = req.body;
+        const { client_id, items, notes, valid_until, tax_rate, terms_conditions, expiration_date } = req.body;
 
         if (!items || items.length === 0) {
             return res.status(400).json({ error: 'Items are required' });
@@ -167,6 +172,9 @@ router.put('/:id', requireAuth, async (req, res) => {
                 total_amount,
                 notes,
                 valid_until,
+                tax_rate,
+                terms_conditions,
+                expiration_date,
                 updated_at: new Date().toISOString()
             })
             .eq('id', id)
@@ -290,6 +298,89 @@ router.delete('/:id', requireAuth, async (req, res) => {
         res.json({ message: 'Quote deleted successfully' });
     } catch (error: any) {
         console.error('Delete quote error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Send quote via email
+router.post('/:id/send', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        const { id } = req.params;
+
+        // 1. Fetch quote with client and items
+        const { data: quote, error: quoteError } = await supabase
+            .from('quotes')
+            .select(`
+                *,
+                clients (
+                    name,
+                    email,
+                    address,
+                    phone
+                )
+            `)
+            .eq('id', id)
+            .eq('user_id', userId)
+            .single();
+
+        if (quoteError || !quote) {
+            return res.status(404).json({ error: 'Quote not found' });
+        }
+
+        // Fetch items separately to ensure we get them all
+        const { data: items, error: itemsError } = await supabase
+            .from('quote_items')
+            .select('*')
+            .eq('quote_id', id);
+
+        if (items) {
+            quote.items = items;
+        }
+
+        // 2. Fetch user profile for company info
+        const { data: userProfile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (profileError) {
+            return res.status(400).json({ error: 'User profile not found' });
+        }
+
+        // 3. Generate PDF
+        const pdfBuffer = await generateQuotePDF(quote, userProfile);
+
+        // 4. Send Email
+        const emailResult = await sendQuoteEmail(
+            quote.clients.email,
+            `Quote #${quote.quote_number} from ${userProfile.company_name || userProfile.full_name}`,
+            `Dear ${quote.clients.name},\n\nPlease find attached the quote #${quote.quote_number}.\n\nBest regards,\n${userProfile.full_name}`,
+            pdfBuffer,
+            `Quote_${quote.quote_number}.pdf`
+        );
+
+        // 5. Update status to 'sent'
+        const { error: updateError } = await supabase
+            .from('quotes')
+            .update({
+                status: 'sent',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (updateError) {
+            console.error('Error updating quote status:', updateError);
+        }
+
+        res.json({
+            message: 'Email sent successfully',
+            previewUrl: emailResult.previewUrl
+        });
+
+    } catch (error: any) {
+        console.error('Send quote error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

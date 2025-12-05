@@ -1,3 +1,4 @@
+// Login page
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn, AlertCircle } from 'lucide-react';

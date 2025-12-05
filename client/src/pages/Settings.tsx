@@ -19,6 +19,8 @@ export default function Settings() {
     phone: '',
     company_name: '',
     logo_url: '',
+    tax_rate: 0,
+    terms_conditions: '',
     subscription_tier: 'free'
   });
 
@@ -49,6 +51,8 @@ export default function Settings() {
         phone: profile.phone || '',
         company_name: profile.company_name || '',
         logo_url: profile.logo_url || '',
+        tax_rate: profile.tax_rate || 0,
+        terms_conditions: profile.terms_conditions || '',
         subscription_tier: profile.subscription_tier
       });
       
@@ -70,12 +74,15 @@ export default function Settings() {
   const handleUpdateProfile = async () => {
     setSaving(true);
     try {
-      await userApi.updateProfile({
+      const payload = {
         full_name: userInfo.full_name,
         phone: userInfo.phone,
         company_name: userInfo.company_name,
-        logo_url: userInfo.logo_url
-      });
+        logo_url: userInfo.logo_url,
+        tax_rate: userInfo.tax_rate,
+        terms_conditions: userInfo.terms_conditions
+      };
+      await userApi.updateProfile(payload);
       alert('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -226,6 +233,45 @@ export default function Settings() {
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
+              
+              {/* Business Settings */}
+              <div className="mt-8 border-t border-gray-200 pt-8">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Business Settings</h3>
+                
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-gray-700 font-semibold mb-2">
+                      Default Tax Rate (%)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={userInfo.tax_rate}
+                      onChange={(e) => setUserInfo({ ...userInfo, tax_rate: parseFloat(e.target.value) || 0 })}
+                      placeholder="16.00"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">This will be the default tax rate for new quotes</p>
+                  </div>
+                </div>
+                
+                <div className="mt-6">
+                  <label className="block text-gray-700 font-semibold mb-2">
+                    Default Terms & Conditions
+                  </label>
+                  <textarea
+                    value={userInfo.terms_conditions}
+                    onChange={(e) => setUserInfo({ ...userInfo, terms_conditions: e.target.value })}
+                    placeholder="Enter your default terms and conditions for quotes..."
+                    rows={6}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">These terms will appear on all new quotes by default</p>
+                </div>
+              </div>
+              
               <button 
                 onClick={handleUpdateProfile}
                 disabled={saving}
