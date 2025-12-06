@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 
 import { quotesApi, servicesApi, userApi } from '../services/api';
+import { useAlert } from '../context/AlertContext';
 import { generateQuotePDF } from '../utils/pdfGenerator';
 
 import type { Quote, Service } from '../types';
@@ -13,6 +14,7 @@ import SendQuoteModal from '../components/SendQuoteModal';
 export default function EditQuote() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,7 +55,7 @@ export default function EditQuote() {
       setTemplate(quoteData.template || 'standard');
     } catch (error) {
       console.error('Error loading data:', error);
-      alert('Failed to load quote data');
+      showAlert('Failed to load quote data', 'error');
     } finally {
       setLoading(false);
     }
@@ -100,17 +102,17 @@ export default function EditQuote() {
 
     // Validate items
     if (items.length === 0) {
-      alert('Please add at least one item');
+      showAlert('Please add at least one item', 'warning');
       return;
     }
 
     for (const item of items) {
       if (!item.service_id) {
-        alert('Please select a service for all items');
+        showAlert('Please select a service for all items', 'warning');
         return;
       }
       if (item.quantity <= 0) {
-        alert('Quantity must be greater than 0');
+        showAlert('Quantity must be greater than 0', 'warning');
         return;
       }
     }
@@ -135,7 +137,7 @@ export default function EditQuote() {
       navigate(`/clients/${quote.client_id}`);
     } catch (error) {
       console.error('Error updating quote:', error);
-      alert('Failed to update quote');
+      showAlert('Failed to update quote', 'error');
     } finally {
       setSaving(false);
     }
@@ -146,11 +148,11 @@ export default function EditQuote() {
     
     try {
       await quotesApi.sendQuote(id, { subject, message });
-      alert('Quote sent successfully!');
+      showAlert('Quote sent successfully!', 'success');
       setShowSendModal(false);
     } catch (error) {
       console.error('Error sending email:', error);
-      alert('Failed to send email');
+      showAlert('Failed to send email', 'error');
     }
   };
 
@@ -205,10 +207,14 @@ export default function EditQuote() {
               </button>
               <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
                 quote.status === 'paid' ? 'bg-green-100 text-green-800' :
+                quote.status === 'partial' ? 'bg-amber-100 text-amber-800' :
                 quote.status === 'sent' ? 'bg-yellow-100 text-yellow-800' :
                 'bg-gray-100 text-gray-800'
               }`}>
                 {quote.status.charAt(0).toUpperCase() + quote.status.slice(1)}
+                {quote.status === 'partial' && quote.paid_amount !== undefined && (
+                  <span className="ml-1">(${quote.paid_amount.toLocaleString()})</span>
+                )}
               </span>
             </div>
           </div>

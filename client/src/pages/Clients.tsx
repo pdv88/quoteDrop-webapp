@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { clientsApi } from '../services/api';
+import { useAlert } from '../context/AlertContext';
 import type { Client } from '../types';
 
 
 export default function Clients() {
+  const { showAlert } = useAlert();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,7 +46,7 @@ export default function Clients() {
       setNewClient({ name: '', email: '', address: '', phone: '' });
     } catch (error) {
       console.error('Error creating client:', error);
-      alert('Failed to create client');
+      showAlert('Failed to create client', 'error');
     } finally {
       setSubmitting(false);
     }

@@ -3,12 +3,14 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 
 import { clientsApi } from '../services/api';
+import { useAlert } from '../context/AlertContext';
 
 
 
 export default function EditClient() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,7 +39,7 @@ export default function EditClient() {
       });
     } catch (error) {
       console.error('Error loading client:', error);
-      alert('Failed to load client data');
+      showAlert('Failed to load client data', 'error');
       navigate('/clients');
     } finally {
       setLoading(false);
@@ -54,7 +56,7 @@ export default function EditClient() {
       navigate(`/clients/${id}`);
     } catch (error) {
       console.error('Error updating client:', error);
-      alert('Failed to update client');
+      showAlert('Failed to update client', 'error');
     } finally {
       setSaving(false);
     }

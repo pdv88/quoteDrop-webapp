@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { Send, Edit, Trash2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { dashboardApi, quotesApi } from '../services/api';
+import { useAlert } from '../context/AlertContext';
 import { processChartData, type TimeRange } from '../utils/chartUtils';
 import { formatQuoteNumber } from '../utils/formatters';
 
 
 export default function Dashboard() {
+  const { showAlert, showPrompt } = useAlert();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
@@ -34,7 +36,7 @@ export default function Dashboard() {
       loadStats();
     } catch (error) {
       console.error('Error deleting quote:', error);
-      alert('Failed to delete quote');
+      showAlert('Failed to delete quote', 'error');
     }
   };
 
@@ -42,12 +44,12 @@ export default function Dashboard() {
     let paidAmount: number | undefined;
 
     if (newStatus === 'partial') {
-      const amountStr = prompt('Enter the amount paid so far:');
+      const amountStr = await showPrompt('Enter the amount paid so far:', '', 'Partial Payment');
       if (amountStr === null) return;
       
       const amount = parseFloat(amountStr);
       if (isNaN(amount) || amount < 0) {
-        alert('Please enter a valid amount');
+        showAlert('Please enter a valid amount', 'warning');
         return;
       }
       paidAmount = amount;
@@ -58,7 +60,7 @@ export default function Dashboard() {
       loadStats();
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Failed to update status');
+      showAlert('Failed to update status', 'error');
     }
   };
 
@@ -265,7 +267,12 @@ function ActivityItem({ quote, onDelete, onStatusChange }: { quote: any; onDelet
           <span className="text-gray-400">•</span>
           <span className="font-semibold text-gray-800 text-sm sm:text-base">{quote.clients?.name || 'Unknown Client'}</span>
         </div>
-        <div className="text-xs sm:text-sm text-gray-500 mt-1">${quote.total_amount.toLocaleString()}</div>
+        <div className="text-xs sm:text-sm text-gray-500 mt-1">
+          ${quote.total_amount.toLocaleString()}
+          {quote.status === 'partial' && quote.paid_amount !== undefined && (
+            <span className="ml-2 text-green-600">(Paid: ${quote.paid_amount.toLocaleString()})</span>
+          )}
+        </div>
       </div>
       
       <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto justify-between sm:justify-end">

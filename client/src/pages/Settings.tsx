@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 
 import { userApi, servicesApi } from '../services/api';
 import { authService } from '../services/auth';
+import { useAlert } from '../context/AlertContext';
 import type { Service } from '../types';
 
 export default function Settings() {
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState<'user' | 'services'>('user');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -83,10 +85,10 @@ export default function Settings() {
         terms_conditions: userInfo.terms_conditions
       };
       await userApi.updateProfile(payload);
-      alert('Profile updated successfully');
+      showAlert('Profile updated successfully', 'success');
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Failed to update profile');
+      showAlert('Failed to update profile', 'error');
     } finally {
       setSaving(false);
     }
@@ -100,10 +102,10 @@ export default function Settings() {
     try {
       await userApi.updateSubscription(tier);
       setUserInfo({ ...userInfo, subscription_tier: tier });
-      alert(`Subscription updated to ${tier} plan`);
+      showAlert(`Subscription updated to ${tier} plan`, 'success');
     } catch (error) {
       console.error('Error updating subscription:', error);
-      alert('Failed to update subscription');
+      showAlert('Failed to update subscription', 'error');
     }
   };
 
@@ -116,7 +118,7 @@ export default function Settings() {
       setNewService({ name: '', description: '', unit_cost: 0, unit_type: 'hour' });
     } catch (error) {
       console.error('Error creating service:', error);
-      alert('Failed to create service');
+      showAlert('Failed to create service', 'error');
     }
   };
 
@@ -128,7 +130,7 @@ export default function Settings() {
       setServices(services.filter(s => s.id !== id));
     } catch (error) {
       console.error('Error deleting service:', error);
-      alert('Failed to delete service');
+      showAlert('Failed to delete service', 'error');
     }
   };
 
@@ -246,7 +248,7 @@ export default function Settings() {
                             if (!file) return;
                             
                             if (file.size > 1 * 1024 * 1024) {
-                              alert('File size must be less than 1MB');
+                              showAlert('File size must be less than 1MB', 'warning');
                               return;
                             }
 
@@ -254,10 +256,10 @@ export default function Settings() {
                               setSaving(true);
                               const { logo_url } = await userApi.uploadLogo(file);
                               setUserInfo({ ...userInfo, logo_url });
-                              alert('Logo uploaded successfully');
+                              showAlert('Logo uploaded successfully', 'success');
                             } catch (error) {
                               console.error('Error uploading logo:', error);
-                              alert('Failed to upload logo');
+                              showAlert('Failed to upload logo', 'error');
                             } finally {
                               setSaving(false);
                             }

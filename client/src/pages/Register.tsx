@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus, AlertCircle } from 'lucide-react';
 import { authService } from '../services/auth';
+import { useAlert } from '../context/AlertContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
@@ -16,6 +17,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -51,7 +53,7 @@ export default function Register() {
       // Check if email confirmation is required
       if (result.user && !result.user.email) {
         // Email confirmation required
-        alert('Registration successful! Please check your email to confirm your account before logging in.');
+        showAlert('Registration successful! Please check your email to confirm your account before logging in.', 'success');
         navigate('/login');
         return;
       }
@@ -63,7 +65,7 @@ export default function Register() {
       } catch (loginErr: any) {
         // If login fails due to unconfirmed email, show message
         if (loginErr.message.includes('Email not confirmed') || loginErr.message.includes('Invalid')) {
-          alert('Registration successful! Please check your email to confirm your account, then login.');
+          showAlert('Registration successful! Please check your email to confirm your account, then login.', 'success');
           navigate('/login');
         } else {
           throw loginErr;

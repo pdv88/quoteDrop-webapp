@@ -5,12 +5,14 @@ import { Eye, Plus, Trash2 } from 'lucide-react';
 import { clientsApi, servicesApi, quotesApi, userApi } from '../services/api';
 import { generateQuotePDF } from '../utils/pdfGenerator';
 import SendQuoteModal from '../components/SendQuoteModal';
+import { useAlert } from '../context/AlertContext';
 
 import type { Client, Service } from '../types';
 
 
 export default function CreateQuote() {
   const navigate = useNavigate();
+  const { showAlert } = useAlert();
   
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -87,11 +89,11 @@ export default function CreateQuote() {
 
   const handleCreate = async () => {
     if (!selectedClient) {
-      alert('Please select a client');
+      showAlert('Please select a client', 'warning');
       return null;
     }
     if (items.length === 0) {
-      alert('Please add at least one item');
+      showAlert('Please add at least one item', 'warning');
       return null;
     }
 
@@ -117,9 +119,9 @@ export default function CreateQuote() {
     } catch (error: any) {
       console.error('Error creating quote:', error);
       if (error.response?.status === 403 && error.response?.data?.error?.includes('limit')) {
-         alert('Monthly quote limit reached! 🚀\n\nYou are on the Free plan which allows 5 quotes per month.\n\nPlease upgrade to Premium for unlimited quotes.');
+         showAlert('Monthly quote limit reached! 🚀\n\nYou are on the Free plan which allows 5 quotes per month.\n\nPlease upgrade to Premium for unlimited quotes.', 'error', 'Limit Reached');
       } else {
-         alert(error.message || 'Failed to create quote');
+         showAlert(error.message || 'Failed to create quote', 'error');
       }
       return null;
     } finally {
@@ -140,11 +142,11 @@ export default function CreateQuote() {
     
     try {
       await quotesApi.sendQuote(createdQuoteId, { subject, message });
-      alert('Quote sent successfully!');
+      showAlert('Quote sent successfully!', 'success');
       navigate('/dashboard');
     } catch (error) {
       console.error('Error sending email:', error);
-      alert('Failed to send email');
+      showAlert('Failed to send email', 'error');
     }
   };
 
@@ -384,7 +386,7 @@ export default function CreateQuote() {
                         setShowPreview(true);
                     }
                   } else {
-                      alert("Please select a client first.");
+                      showAlert("Please select a client first.", 'warning');
                   }
               }}
               className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 border border-teal-600 text-teal-600 font-semibold rounded-lg hover:bg-teal-50 transition"

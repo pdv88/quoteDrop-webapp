@@ -4,6 +4,7 @@ import { Mail, Send, Edit, Trash2, Phone, MapPin, ArrowLeft } from 'lucide-react
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 import { clientsApi, quotesApi } from '../services/api';
+import { useAlert } from '../context/AlertContext';
 import { formatCurrency, formatDate, formatQuoteNumber } from '../utils/formatters';
 import { processChartData, type TimeRange } from '../utils/chartUtils';
 import type { ClientWithStats, Quote } from '../types';
@@ -11,6 +12,7 @@ import type { ClientWithStats, Quote } from '../types';
 export default function ClientDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showAlert, showPrompt } = useAlert();
   
   const [client, setClient] = useState<ClientWithStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +41,7 @@ export default function ClientDetails() {
       }
     } catch (error) {
       console.error('Error loading client:', error);
-      alert('Failed to load client data');
+      showAlert('Failed to load client data', 'error');
       navigate('/clients');
     } finally {
       setLoading(false);
@@ -59,7 +61,7 @@ export default function ClientDetails() {
       }
     } catch (error) {
       console.error('Error deleting quote:', error);
-      alert('Failed to delete quote');
+      showAlert('Failed to delete quote', 'error');
     }
   };
 
@@ -67,12 +69,12 @@ export default function ClientDetails() {
     let paidAmount: number | undefined;
 
     if (newStatus === 'partial') {
-      const amountStr = prompt('Enter the amount paid so far:');
+      const amountStr = await showPrompt('Enter the amount paid so far:', '', 'Partial Payment');
       if (amountStr === null) return;
       
       const amount = parseFloat(amountStr);
       if (isNaN(amount) || amount < 0) {
-        alert('Please enter a valid amount');
+        showAlert('Please enter a valid amount', 'warning');
         return;
       }
       paidAmount = amount;
@@ -88,7 +90,7 @@ export default function ClientDetails() {
       }
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Failed to update status');
+      showAlert('Failed to update status', 'error');
     }
   };
 
@@ -97,7 +99,7 @@ export default function ClientDetails() {
 
     try {
       const response = await quotesApi.sendQuote(quoteId);
-      alert('Email sent successfully!');
+      showAlert('Email sent successfully!', 'success');
       
       if (response.previewUrl) {
         window.open(response.previewUrl, '_blank');
@@ -120,7 +122,7 @@ export default function ClientDetails() {
       }
     } catch (error) {
       console.error('Error sending email:', error);
-      alert('Failed to send email');
+      showAlert('Failed to send email', 'error');
     }
   };
 
@@ -296,11 +298,21 @@ export default function ClientDetails() {
                       </span>
                     </div>
                     <p className="text-gray-500 text-sm mt-1">{formatDate(quote.created_at)}</p>
-                    <p className="font-bold text-gray-800 mt-1 sm:hidden">{formatCurrency(quote.total_amount)}</p>
+                    <p className="font-bold text-gray-800 mt-1 sm:hidden">
+                      {formatCurrency(quote.total_amount)}
+                      {quote.status === 'partial' && quote.paid_amount !== undefined && (
+                        <span className="ml-2 text-green-600 font-normal">(Paid: {formatCurrency(quote.paid_amount)})</span>
+                      )}
+                    </p>
                   </div>
                   
                   <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                    <span className="font-bold text-gray-800 hidden sm:block">{formatCurrency(quote.total_amount)}</span>
+                    <div className="hidden sm:block">
+                      <span className="font-bold text-gray-800">{formatCurrency(quote.total_amount)}</span>
+                      {quote.status === 'partial' && quote.paid_amount !== undefined && (
+                        <span className="ml-2 text-green-600">(Paid: {formatCurrency(quote.paid_amount)})</span>
+                      )}
+                    </div>
                     
                     <div className="flex items-center gap-2">
                       <select
