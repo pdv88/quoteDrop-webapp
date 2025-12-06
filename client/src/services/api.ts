@@ -27,7 +27,17 @@ export const userApi = {
                 subscription_tier: tier,
                 stripe_customer_id: stripeCustomerId
             })
-        })
+        }),
+
+    uploadLogo: (file: File) => {
+        const formData = new FormData();
+        formData.append('logo', file);
+        return apiRequest('/api/users/logo', {
+            method: 'POST',
+            body: formData as any, // apiRequest handles FormData if body is not stringified? No, fetch handles it.
+            headers: {} // Let browser set Content-Type with boundary
+        });
+    }
 };
 
 // Clients API
@@ -107,9 +117,10 @@ export const quotesApi = {
             method: 'DELETE'
         }),
 
-    sendQuote: (id: string): Promise<{ message: string; previewUrl?: string }> =>
+    sendQuote: (id: string, data?: { subject: string; message: string }): Promise<{ message: string; previewUrl?: string }> =>
         apiRequest(`/api/quotes/${id}/send`, {
-            method: 'POST'
+            method: 'POST',
+            body: JSON.stringify(data || {})
         })
 };
 

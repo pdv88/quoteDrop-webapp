@@ -7,7 +7,8 @@ import { generateQuotePDF } from '../utils/pdfGenerator';
 import type { Quote, Service } from '../types';
 
 import { formatQuoteNumber } from '../utils/formatters';
-import { ArrowLeft, Plus, Save, Trash2, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Trash2, FileText, Send } from 'lucide-react';
+import SendQuoteModal from '../components/SendQuoteModal';
 
 export default function EditQuote() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +23,8 @@ export default function EditQuote() {
   const [taxRate, setTaxRate] = useState(0);
   const [termsConditions, setTermsConditions] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
+  const [template, setTemplate] = useState<'standard' | 'modern' | 'minimal'>('standard');
+  const [showSendModal, setShowSendModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -47,6 +50,7 @@ export default function EditQuote() {
       setTaxRate(quoteData.tax_rate || 0);
       setTermsConditions(quoteData.terms_conditions || '');
       setExpirationDate(quoteData.expiration_date || '');
+      setTemplate(quoteData.template || 'standard');
     } catch (error) {
       console.error('Error loading data:', error);
       alert('Failed to load quote data');
@@ -125,7 +129,8 @@ export default function EditQuote() {
         tax_rate: taxRate,
         terms_conditions: termsConditions,
         expiration_date: expirationDate || undefined,
-        valid_until: quote.valid_until
+        valid_until: quote.valid_until,
+        template
       });
       navigate(`/clients/${quote.client_id}`);
     } catch (error) {
@@ -133,6 +138,19 @@ export default function EditQuote() {
       alert('Failed to update quote');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendEmail = async (subject: string, message: string) => {
+    if (!id) return;
+    
+    try {
+      await quotesApi.sendQuote(id, { subject, message });
+      alert('Quote sent successfully!');
+      setShowSendModal(false);
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Failed to send email');
     }
   };
 
@@ -167,7 +185,7 @@ export default function EditQuote() {
                 onClick={() => {
                   if (quote && userProfile) {
                     generateQuotePDF({
-                      quote: { ...quote, items },
+                      quote: { ...quote, items, template },
                       user: userProfile,
                       items: items
                     });
@@ -177,6 +195,13 @@ export default function EditQuote() {
               >
                 <FileText className="w-4 h-4" />
                 <span>Download PDF</span>
+              </button>
+              <button
+                onClick={() => setShowSendModal(true)}
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-gray-700"
+              >
+                <Send className="w-4 h-4" />
+                <span>Send Quote</span>
               </button>
               <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
                 quote.status === 'paid' ? 'bg-green-100 text-green-800' :
@@ -260,6 +285,49 @@ export default function EditQuote() {
             <div className="border-t pt-6 mb-6">
               <h3 className="text-lg font-bold text-gray-800 mb-4">Quote Settings</h3>
               
+              <div className="mb-6">
+                <label className="block text-gray-700 font-semibold mb-2">Quote Template</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {['standard', 'modern', 'minimal'].map((t) => {
+                    const isPremium = t !== 'standard';
+                    const isLocked = isPremium && userProfile?.subscription_tier !== 'premium';
+                    
+                    return (
+                      <div
+                        key={t}
+                        onClick={() => !isLocked && setTemplate(t as any)}
+                        className={`
+                          relative p-4 rounded-xl border-2 cursor-pointer transition
+                          ${template === t 
+                            ? 'border-teal-500 bg-teal-50' 
+                            : isLocked 
+                              ? 'border-gray-200 bg-gray-50 opacity-75 cursor-not-allowed' 
+                              : 'border-gray-200 hover:border-teal-200'
+                          }
+                        `}
+                      >
+                        <div className="font-bold text-gray-800 capitalize mb-1">{t}</div>
+                        <div className="text-xs text-gray-500">
+                          {t === 'standard' ? 'Classic layout' : t === 'modern' ? 'Bold & colorful' : 'Clean & simple'}
+                        </div>
+                        {isLocked && (
+                          <div className="absolute top-2 right-2 text-amber-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {userProfile?.subscription_tier !== 'premium' && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Upgrade to <span className="font-bold text-teal-600">Premium</span> to unlock more templates.
+                  </p>
+                )}
+              </div>
+
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">Expiration Date</label>
@@ -336,6 +404,15 @@ export default function EditQuote() {
             </div>
           </div>
         </div>
+        {/* Send Quote Modal */}
+        <SendQuoteModal
+          isOpen={showSendModal}
+          onClose={() => setShowSendModal(false)}
+          onSend={handleSendEmail}
+          defaultSubject={`Quote #${quote.quote_number} from ${userProfile?.company_name || userProfile?.full_name}`}
+          defaultMessage={`Dear ${quote.clients?.name},\n\nPlease find attached the quote #${quote.quote_number}.\n\nBest regards,\n${userProfile?.full_name}`}
+          clientName={quote.clients?.name || ''}
+        />
       </main>
   );
 }

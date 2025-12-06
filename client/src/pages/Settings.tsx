@@ -224,14 +224,82 @@ export default function Settings() {
                 </div>
               </div>
               <div className="mt-6">
-                <label className="block text-gray-700 font-semibold mb-2">Company Logo URL</label>
-                <input
-                  type="text"
-                  value={userInfo.logo_url}
-                  onChange={(e) => setUserInfo({ ...userInfo, logo_url: e.target.value })}
-                  placeholder="https://example.com/logo.png"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
+                <label className="block text-gray-700 font-semibold mb-2">Company Logo</label>
+                <div className="flex items-start space-x-4">
+                  {userInfo.logo_url && (
+                    <div className="relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                      <img 
+                        src={userInfo.logo_url} 
+                        alt="Company Logo" 
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    {userInfo.subscription_tier === 'premium' ? (
+                      <div className="space-y-3">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            
+                            if (file.size > 1 * 1024 * 1024) {
+                              alert('File size must be less than 1MB');
+                              return;
+                            }
+
+                            try {
+                              setSaving(true);
+                              const { logo_url } = await userApi.uploadLogo(file);
+                              setUserInfo({ ...userInfo, logo_url });
+                              alert('Logo uploaded successfully');
+                            } catch (error) {
+                              console.error('Error uploading logo:', error);
+                              alert('Failed to upload logo');
+                            } finally {
+                              setSaving(false);
+                            }
+                          }}
+                          className="block w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-full file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-teal-50 file:text-teal-700
+                            hover:file:bg-teal-100"
+                        />
+                        <p className="text-xs text-gray-500">
+                          Upload a PNG or JPG image (max 1MB).
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <p className="text-sm text-gray-600 mb-2">
+                          Upgrade to <strong>Premium</strong> to upload your own company logo.
+                        </p>
+                        <button
+                          onClick={() => handleUpdateSubscription('premium')}
+                          className="text-sm text-teal-600 font-semibold hover:text-teal-700"
+                        >
+                          Upgrade Now
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Fallback URL input */}
+                    <div className="mt-3">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Or enter URL manually</label>
+                      <input
+                        type="text"
+                        value={userInfo.logo_url}
+                        onChange={(e) => setUserInfo({ ...userInfo, logo_url: e.target.value })}
+                        placeholder="https://example.com/logo.png"
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
               
               {/* Business Settings */}

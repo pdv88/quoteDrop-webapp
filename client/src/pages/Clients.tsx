@@ -106,7 +106,7 @@ export default function Clients() {
                   <div className="text-right hidden sm:block">
                     <div className="text-xs sm:text-sm text-gray-500">Quotes</div>
                     <div className="text-lg sm:text-xl font-bold text-teal-600">
-                      {(client as any).total_quotes || 0}
+                      {client.total_quotes || 0}
                     </div>
                   </div>
                 </div>

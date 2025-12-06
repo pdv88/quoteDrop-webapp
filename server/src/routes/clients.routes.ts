@@ -11,7 +11,7 @@ router.get('/', requireAuth, async (req, res) => {
 
         const { data: clients, error } = await supabase
             .from('clients')
-            .select('*')
+            .select('*, quotes(count)')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
@@ -19,7 +19,13 @@ router.get('/', requireAuth, async (req, res) => {
             return res.status(400).json({ error: error.message });
         }
 
-        res.json(clients || []);
+        // Transform data to flatten the count
+        const clientsWithStats = clients?.map((client: any) => ({
+            ...client,
+            total_quotes: client.quotes?.[0]?.count || 0
+        }));
+
+        res.json(clientsWithStats || []);
     } catch (error: any) {
         console.error('List clients error:', error);
         res.status(500).json({ error: 'Internal server error' });

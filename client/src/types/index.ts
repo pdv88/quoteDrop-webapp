@@ -24,6 +24,7 @@ export interface Client {
     phone?: string;
     created_at: string;
     updated_at: string;
+    total_quotes?: number;
 }
 
 export interface ClientWithStats extends Client {
@@ -62,6 +63,7 @@ export interface Quote {
     client_id: string;
     quote_number: number;
     status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'paid' | 'partial';
+    template?: 'standard' | 'modern' | 'minimal';
     total_amount: number;
     paid_amount?: number;
     tax_rate?: number;
@@ -108,6 +110,7 @@ export interface CreateQuoteData {
     expiration_date?: string;
     notes?: string;
     valid_until?: string;
+    template?: 'standard' | 'modern' | 'minimal';
 }
 
 export interface UpdateProfileData {

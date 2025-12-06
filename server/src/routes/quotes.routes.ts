@@ -39,10 +39,23 @@ router.get('/', requireAuth, async (req, res) => {
 router.post('/', requireAuth, async (req, res) => {
     try {
         const userId = req.user?.id;
-        const { client_id, items, notes, valid_until, tax_rate, terms_conditions, expiration_date } = req.body;
+        const { client_id, items, notes, valid_until, tax_rate, terms_conditions, expiration_date, template = 'standard' } = req.body;
 
         if (!client_id || !items || items.length === 0) {
             return res.status(400).json({ error: 'Client and items are required' });
+        }
+
+        // Validate template for premium users
+        if (template !== 'standard') {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('subscription_tier')
+                .eq('id', userId)
+                .single();
+
+            if (profile?.subscription_tier !== 'premium') {
+                return res.status(403).json({ error: 'Premium templates are only available for premium users' });
+            }
         }
 
         // Calculate total
@@ -62,6 +75,7 @@ router.post('/', requireAuth, async (req, res) => {
                 tax_rate,
                 terms_conditions,
                 expiration_date,
+                template,
                 status: 'draft'
             })
             .select()
@@ -153,10 +167,23 @@ router.put('/:id', requireAuth, async (req, res) => {
     try {
         const userId = req.user?.id;
         const { id } = req.params;
-        const { client_id, items, notes, valid_until, tax_rate, terms_conditions, expiration_date } = req.body;
+        const { client_id, items, notes, valid_until, tax_rate, terms_conditions, expiration_date, template } = req.body;
 
         if (!items || items.length === 0) {
             return res.status(400).json({ error: 'Items are required' });
+        }
+
+        // Validate template for premium users
+        if (template && template !== 'standard') {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('subscription_tier')
+                .eq('id', userId)
+                .single();
+
+            if (profile?.subscription_tier !== 'premium') {
+                return res.status(403).json({ error: 'Premium templates are only available for premium users' });
+            }
         }
 
         // Calculate total
@@ -175,6 +202,7 @@ router.put('/:id', requireAuth, async (req, res) => {
                 tax_rate,
                 terms_conditions,
                 expiration_date,
+                template,
                 updated_at: new Date().toISOString()
             })
             .eq('id', id)
@@ -307,6 +335,7 @@ router.post('/:id/send', requireAuth, async (req, res) => {
     try {
         const userId = req.user?.id;
         const { id } = req.params;
+        const { subject, message } = req.body;
 
         // 1. Fetch quote with client and items
         const { data: quote, error: quoteError } = await supabase
@@ -353,10 +382,13 @@ router.post('/:id/send', requireAuth, async (req, res) => {
         const pdfBuffer = await generateQuotePDF(quote, userProfile);
 
         // 4. Send Email
+        const emailSubject = subject || `Quote #${quote.quote_number} from ${userProfile.company_name || userProfile.full_name}`;
+        const emailMessage = message || `Dear ${quote.clients.name},\n\nPlease find attached the quote #${quote.quote_number}.\n\nBest regards,\n${userProfile.full_name}`;
+
         const emailResult = await sendQuoteEmail(
             quote.clients.email,
-            `Quote #${quote.quote_number} from ${userProfile.company_name || userProfile.full_name}`,
-            `Dear ${quote.clients.name},\n\nPlease find attached the quote #${quote.quote_number}.\n\nBest regards,\n${userProfile.full_name}`,
+            emailSubject,
+            emailMessage,
             pdfBuffer,
             `Quote_${quote.quote_number}.pdf`
         );
