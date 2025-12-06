@@ -113,9 +113,13 @@ export default function CreateQuote() {
 
       const quote = await quotesApi.create(quoteData);
       return quote;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating quote:', error);
-      alert('Failed to create quote');
+      if (error.response?.status === 403 && error.response?.data?.error?.includes('limit')) {
+         alert('Monthly quote limit reached! 🚀\n\nYou are on the Free plan which allows 5 quotes per month.\n\nPlease upgrade to Premium for unlimited quotes.');
+      } else {
+         alert(error.message || 'Failed to create quote');
+      }
       return null;
     } finally {
       setSubmitting(false);

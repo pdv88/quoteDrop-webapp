@@ -45,14 +45,39 @@ router.post('/', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'Client and items are required' });
         }
 
-        // Validate template for premium users
-        if (template !== 'standard') {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('subscription_tier')
-                .eq('id', userId)
-                .single();
+        // Check quote limit for free users
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('subscription_tier')
+            .eq('id', userId)
+            .single();
 
+        if (profile?.subscription_tier === 'free') {
+            // Get first day of current month
+            const startOfMonth = new Date();
+            startOfMonth.setDate(1);
+            startOfMonth.setHours(0, 0, 0, 0);
+
+            const { count, error: countError } = await supabase
+                .from('quotes')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', userId)
+                .gte('created_at', startOfMonth.toISOString());
+
+            if (countError) {
+                console.error('Error counting quotes:', countError);
+                return res.status(500).json({ error: 'Error checking quote limit' });
+            }
+
+            if (count !== null && count >= 5) {
+                return res.status(403).json({
+                    error: 'Monthly quote limit reached. Please upgrade to Premium to create more quotes.'
+                });
+            }
+        }
+
+        // Validate template for premium users (existing check, slightly modified to reuse profile)
+        if (template !== 'standard') {
             if (profile?.subscription_tier !== 'premium') {
                 return res.status(403).json({ error: 'Premium templates are only available for premium users' });
             }
