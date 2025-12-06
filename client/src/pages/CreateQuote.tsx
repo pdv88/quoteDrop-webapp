@@ -22,6 +22,7 @@ export default function CreateQuote() {
   const [termsConditions, setTermsConditions] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [template, setTemplate] = useState<'standard' | 'modern' | 'minimal'>('standard');
 
@@ -358,7 +359,34 @@ export default function CreateQuote() {
           {/* Actions */}
           <div className="flex space-x-4">
             <button
-              onClick={() => setShowPreview(true)}
+              onClick={async () => {
+                 if (userProfile && selectedClient) {
+                    const client = clients.find(c => c.id === selectedClient);
+                    const url = await generateQuotePDF({
+                      quote: {
+                        quote_number: 'DRAFT',
+                        created_at: new Date().toISOString(),
+                        expiration_date: expirationDate,
+                        tax_rate: taxRate,
+                        terms_conditions: termsConditions,
+                        clients: client,
+                        template
+                      } as any,
+                      user: userProfile,
+                      items: items.map(item => ({
+                        ...item,
+                        unit_cost: item.unitCost
+                      }))
+                    }, true); // Pass true to return blob URL
+                    
+                    if (url) {
+                        setPdfPreviewUrl(url as string);
+                        setShowPreview(true);
+                    }
+                  } else {
+                      alert("Please select a client first.");
+                  }
+              }}
               className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 border border-teal-600 text-teal-600 font-semibold rounded-lg hover:bg-teal-50 transition"
             >
               <Eye className="w-5 h-5" />
@@ -378,55 +406,32 @@ export default function CreateQuote() {
       {/* Preview Modal */}
       {showPreview && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Quote Preview</h2>
-            <div className="border rounded-lg p-6 mb-6">
-              <div className="text-center mb-6">
-                <h3 className="text-3xl font-bold text-[#0b1120]">QuoteDrop</h3>
-                <p className="text-gray-600">Professional Quote</p>
-              </div>
-              <div className="mb-6">
-                <p className="text-gray-600">Client: <span className="font-semibold">{clients.find((c) => c.id === selectedClient)?.name}</span></p>
-              </div>
-              <table className="w-full mb-6">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2">Description</th>
-                    <th className="text-right py-2">Qty</th>
-                    <th className="text-right py-2">Rate</th>
-                    <th className="text-right py-2">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, i) => (
-                    <tr key={i} className="border-b">
-                      <td className="py-2">{item.description}</td>
-                      <td className="text-right">{item.quantity}</td>
-                      <td className="text-right">${item.unitCost}</td>
-                      <td className="text-right">${(item.quantity * item.unitCost).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="text-right text-2xl font-bold">
-                <div className="text-lg font-normal text-gray-600">Subtotal: ${calculateSubtotal().toLocaleString()}</div>
-                {taxRate > 0 && <div className="text-lg font-normal text-gray-600">Tax ({taxRate}%): ${calculateTax().toLocaleString()}</div>}
-                <div className="mt-2 pt-2 border-t">Total: ${calculateTotal().toLocaleString()}</div>
-              </div>
-              
-              {(termsConditions || expirationDate) && (
-                <div className="mt-6 pt-6 border-t text-sm text-gray-600">
-                  {expirationDate && <p className="mb-2"><strong>Expires:</strong> {expirationDate}</p>}
-                  {termsConditions && (
-                    <div>
-                      <strong>Terms & Conditions:</strong>
-                      <p className="whitespace-pre-wrap mt-1">{termsConditions}</p>
-                    </div>
-                  )}
-                </div>
-              )}
+          <div className="bg-white rounded-2xl p-4 max-w-4xl w-full mx-4 h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">Quote Preview</h2>
+                <button 
+                    onClick={() => setShowPreview(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                >
+                    Close
+                </button>
             </div>
-            <div className="flex space-x-4">
+            
+            <div className="flex-1 bg-gray-100 rounded-lg overflow-hidden relative">
+                {pdfPreviewUrl ? (
+                    <iframe 
+                        src={pdfPreviewUrl} 
+                        className="w-full h-full border-0" 
+                        title="PDF Preview"
+                    />
+                ) : (
+                    <div className="flex items-center justify-center h-full text-gray-500">
+                        Loading preview...
+                    </div>
+                )}
+            </div>
+
+            <div className="flex space-x-4 mt-6">
               <button
                 onClick={() => setShowPreview(false)}
                 className="flex-1 py-3 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition"

@@ -9,20 +9,20 @@ interface PDFGeneratorOptions {
     items: QuoteItem[];
 }
 
-export async function generateQuotePDF(options: PDFGeneratorOptions): Promise<void> {
+export async function generateQuotePDF(options: PDFGeneratorOptions, returnBlob: boolean = false): Promise<string | void> {
     const { quote } = options;
     switch (quote.template) {
         case 'modern':
-            return generateModernPDF(options);
+            return generateModernPDF(options, returnBlob);
         case 'minimal':
-            return generateMinimalPDF(options);
+            return generateMinimalPDF(options, returnBlob);
         case 'standard':
         default:
-            return generateStandardPDF(options);
+            return generateStandardPDF(options, returnBlob);
     }
 }
 
-async function generateStandardPDF({ quote, user, items }: PDFGeneratorOptions): Promise<void> {
+async function generateStandardPDF({ quote, user, items }: PDFGeneratorOptions, returnBlob: boolean = false): Promise<string | void> {
     const doc = new jsPDF();
 
     // Brand colors
@@ -245,12 +245,17 @@ async function generateStandardPDF({ quote, user, items }: PDFGeneratorOptions):
         );
     }
 
-    // Save the PDF
+    // Save or return PDF
     const fileName = `Quote_${formatQuoteNumber(quote.quote_number)}_${quote.clients?.name || 'Client'}.pdf`;
-    doc.save(fileName);
+
+    if (returnBlob) {
+        return doc.output('bloburl').toString();
+    } else {
+        doc.save(fileName);
+    }
 }
 
-async function generateModernPDF({ quote, user, items }: PDFGeneratorOptions): Promise<void> {
+async function generateModernPDF({ quote, user, items }: PDFGeneratorOptions, returnBlob: boolean = false): Promise<string | void> {
     const doc = new jsPDF();
     const primaryColor: [number, number, number] = [79, 70, 229]; // Indigo
     const secondaryColor: [number, number, number] = [243, 244, 246]; // Light Gray
@@ -378,10 +383,14 @@ async function generateModernPDF({ quote, user, items }: PDFGeneratorOptions): P
         doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
     }
 
-    doc.save(`Quote_${formatQuoteNumber(quote.quote_number)}_Modern.pdf`);
+    if (returnBlob) {
+        return doc.output('bloburl').toString();
+    } else {
+        doc.save(`Quote_${formatQuoteNumber(quote.quote_number)}_Modern.pdf`);
+    }
 }
 
-async function generateMinimalPDF({ quote, user, items }: PDFGeneratorOptions): Promise<void> {
+async function generateMinimalPDF({ quote, user, items }: PDFGeneratorOptions, returnBlob: boolean = false): Promise<string | void> {
     const doc = new jsPDF();
     const black: [number, number, number] = [0, 0, 0];
 
@@ -457,7 +466,11 @@ async function generateMinimalPDF({ quote, user, items }: PDFGeneratorOptions): 
     doc.setFont('times', 'bold');
     doc.text(`TOTAL: ${formatCurrency(total)}`, 190, yPosition, { align: 'right' });
 
-    doc.save(`Quote_${formatQuoteNumber(quote.quote_number)}_Minimal.pdf`);
+    if (returnBlob) {
+        return doc.output('bloburl').toString();
+    } else {
+        doc.save(`Quote_${formatQuoteNumber(quote.quote_number)}_Minimal.pdf`);
+    }
 }
 
 function getBase64ImageFromURL(url: string): Promise<string> {
