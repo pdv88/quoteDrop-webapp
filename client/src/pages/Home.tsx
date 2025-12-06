@@ -160,10 +160,10 @@ export default function Home() {
             delay={0.1}
           />
           <PricingCard 
-            tier="Pro"
-            price="$29"
+            tier="Premium"
+            price="$3"
             features={['Unlimited quotes', 'Custom branding', 'Priority support', 'Advanced analytics', 'Client Portal']}
-            cta="Upgrade to Pro"
+            cta="Upgrade to Premium"
             featured
             delay={0.2}
           />

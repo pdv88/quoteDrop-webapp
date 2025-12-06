@@ -375,7 +375,7 @@ export default function Settings() {
                   }`}
                 >
                   <h3 className="text-xl font-bold text-gray-800 mb-2">Premium</h3>
-                  <div className="text-3xl font-bold text-gray-800 mb-4">$2<span className="text-lg">/mo</span></div>
+                  <div className="text-3xl font-bold text-gray-800 mb-4">$3<span className="text-lg">/mo</span></div>
                   <ul className="space-y-2 text-gray-600">
                     <li>✓ Unlimited quotes</li>
                     <li>✓ Custom branding</li>
