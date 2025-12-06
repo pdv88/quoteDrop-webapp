@@ -2,8 +2,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn, AlertCircle } from 'lucide-react';
-
-const API_URL = 'http://localhost:3000';
+import { authService } from '../services/auth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -18,25 +17,8 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
-
-      // Store session data in localStorage
-      localStorage.setItem('access_token', data.session.access_token);
-      localStorage.setItem('user', JSON.stringify(data.session.user));
-
-      // Navigate to dashboard
+      await authService.login(email, password);
+      // Navigate to dashboard on success
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'An error occurred during login');
@@ -128,4 +110,3 @@ export default function Login() {
     </div>
   );
 }
-
