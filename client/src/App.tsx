@@ -15,11 +15,13 @@ import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Cookies from './pages/Cookies';
 import Layout from './components/Layout';
+import CookieConsent from './components/CookieConsent';
 import './index.css';
 
 function App() {
   return (
     <Router>
+      <CookieConsent />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
