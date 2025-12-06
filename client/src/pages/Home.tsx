@@ -3,7 +3,11 @@ import { CheckCircle, Zap, Shield, TrendingUp, ArrowRight, Star } from 'lucide-r
 import { motion } from 'framer-motion';
 import Hero3D from '../components/Hero3D';
 
+import Header from '../components/Header';
+import Footer from '../components/Footer';
+
 export default function Home() {
+
   return (
     <div className="min-h-screen bg-[#0b1120] text-white overflow-hidden relative">
       {/* Background Gradients */}
@@ -13,28 +17,8 @@ export default function Home() {
       </div>
 
       {/* Navigation */}
-      <nav className="container mx-auto px-6 py-6 flex justify-between items-center relative z-20">
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="text-3xl font-bold flex items-center gap-2"
-        >
-          <div className="w-8 h-8 bg-teal-400 rounded-full flex items-center justify-center text-[#0b1120] font-bold">Q</div>
-          <span className="text-white">quotedrop</span>
-        </motion.div>
-        <motion.div 
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="space-x-4"
-        >
-          <Link to="/login" className="px-6 py-2 text-gray-300 hover:text-white transition font-medium">
-            Login
-          </Link>
-          <Link to="/register" className="px-6 py-3 bg-teal-500 text-white rounded-full font-semibold hover:bg-teal-400 transition shadow-lg hover:shadow-teal-500/20">
-            Get Started
-          </Link>
-        </motion.div>
-      </nav>
+      <Header />
+
 
       {/* Hero Section */}
       <section className="relative min-h-[90vh] flex items-center">
@@ -171,19 +155,8 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 bg-black/20 backdrop-blur-lg">
-        <div className="container mx-auto px-6 py-12">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="text-2xl font-bold flex items-center gap-2 mb-4 md:mb-0">
-               <div className="w-6 h-6 bg-teal-400 rounded-full flex items-center justify-center text-[#0b1120] text-xs font-bold">Q</div>
-               <span className="text-white">quotedrop</span>
-            </div>
-            <div className="text-gray-400 text-sm">
-              &copy; 2025 QuoteDrop. Crafted with ❤️ for creators.
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
+
     </div>
   );
 }
