@@ -9,6 +9,11 @@ import CreateQuote from './pages/CreateQuote';
 import EditQuote from './pages/EditQuote';
 import EditClient from './pages/EditClient';
 import Settings from './pages/Settings';
+import About from './pages/About';
+import Contact from './pages/Contact';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import Cookies from './pages/Cookies';
 import Layout from './components/Layout';
 import './index.css';
 
@@ -19,6 +24,11 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/cookies" element={<Cookies />} />
         
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />

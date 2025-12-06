@@ -100,7 +100,8 @@ export default function Home() {
       </section>
 
       {/* Social Proof */}
-      <section className="container mx-auto px-6 py-20 relative z-10">
+      <section id="testimonials" className="container mx-auto px-6 py-20 relative z-10">
+
         <div className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-3xl p-12 border border-white/10">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-white mb-8">Trusted by Modern Teams</h2>
@@ -129,7 +130,8 @@ export default function Home() {
       </section>
 
       {/* Pricing */}
-      <section className="container mx-auto px-6 py-32 relative z-10">
+      <section id="pricing" className="container mx-auto px-6 py-32 relative z-10">
+
         <div className="text-center mb-20">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Simple, Transparent Pricing</h2>
           <p className="text-xl text-gray-400">No hidden fees. Cancel anytime.</p>
