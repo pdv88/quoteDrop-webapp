@@ -173,7 +173,7 @@ export default function EditQuote() {
   }
 
   return (
-    <main className="p-4 sm:p-6 md:p-8 max-w-full overflow-x-hidden">
+    <div className="p-4 sm:p-6 md:p-8 max-w-full overflow-x-hidden">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-4">
@@ -419,6 +419,6 @@ export default function EditQuote() {
           defaultMessage={`Dear ${quote.clients?.name},\n\nPlease find attached the quote #${quote.quote_number}.\n\nBest regards,\n${userProfile?.full_name}`}
           clientName={quote.clients?.name || ''}
         />
-      </main>
+      </div>
   );
 }

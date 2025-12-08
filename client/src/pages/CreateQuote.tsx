@@ -162,7 +162,7 @@ export default function CreateQuote() {
 
   return (
     <>
-    <main className="p-4 sm:p-6 md:p-8 max-w-full overflow-x-hidden">
+    <div className="p-4 sm:p-6 md:p-8 max-w-full overflow-x-hidden">
         <h1 className="text-3xl font-bold text-gray-800 mb-8">Create Quote</h1>
 
         <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -403,7 +403,7 @@ export default function CreateQuote() {
             </button>
           </div>
         </div>
-      </main>
+      </div>
 
       {/* Preview Modal */}
       {showPreview && (

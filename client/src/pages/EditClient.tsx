@@ -73,7 +73,7 @@ export default function EditClient() {
   }
 
   return (
-    <main className="p-4 sm:p-6 md:p-8 max-w-full overflow-x-hidden">
+    <div className="p-4 sm:p-6 md:p-8 max-w-full overflow-x-hidden">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-4">
@@ -146,7 +146,7 @@ export default function EditClient() {
             </form>
           </div>
         </div>
-      </main>
+      </div>
   );
 }
 
